@@ -116,24 +116,25 @@ def tickets(url, token, tw, project):
     data = get_json(url, token)
     count = 0
     for item in data:
-        count = count + 1
         ticket = int(item['id'])
         click.secho('  {:06d}'.format(ticket), fg=YELLOW, bold=True, nl=False)
+        # task data
         description = '[{}] {}'.format(item['contact'].lower(), item['title'].strip())
-        if item['due']:
-            due = datetime.strptime(item['due'], '%Y-%m-%d')
-        else:
-            due = None
+        due = datetime.strptime(item['due'], '%Y-%m-%d') if item['due'] else None
         priority = PRIORITY[item['priority']]
         username = item['username'] or ''
 
+        #if ticket == 802:
+        #    import ipdb
+        #    ipdb.set_trace()
+
+        # loop variables
+        count = count + 1
         update = False
         alert = ''
         message = ''
-        uuid = ''
         try:
             task = tw.tasks.get(project=project, ticket=ticket)
-            uuid = task['uuid']
             if task['description'] != description:
                 task['description'] = description
                 update = True
@@ -177,8 +178,6 @@ def tickets(url, token, tw, project):
         click.secho('{:20s}'.format(message), fg=CYAN, bold=True, nl=False)
         click.secho('{:20s}'.format(alert), fg=RED, bold=True, nl=False)
         click.secho('')
-        if count > 30:
-            break
 
 
 def url_api(url):
@@ -218,7 +217,6 @@ def cli():
         # login
         url = data['url']
         token = login(url, data['username'], data['password'])
-        click.secho('  login')
         # tickets
         tickets(url, token, tw, project)
 
