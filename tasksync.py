@@ -25,6 +25,7 @@ CONFIG_FILE = '.private.yaml'
 
 PRIORITY = {
     'High': 'H',
+    'Low': 'L',
     'Medium': 'M',
 }
 
@@ -38,50 +39,6 @@ class SyncError(Exception):
     def __str__(self):
         return repr('{}, {}'.format(self.__class__.__name__, self.value))
 
-
-#        data_location = settings.TASKWARRIOR
-#        print(settings.TASKWARRIOR)
-#        tw = TaskWarrior(data_location)
-#
-#        tw.config.update({'uda.ticket.type': 'numeric'})
-#        tw.config.update({'uda.site.type': 'string'})
-#
-#        items = tw.tasks.pending().filter(ticket=99, project='pkimber_net')
-#        for item in items:
-#            print(item['description'], item['project'], item['ticket'], item['uuid'])
-#        #Task(
-#        #    tw,
-#        #    description="Testing task",
-#        #    site='pkimber_net',
-#        #    ticket=99,
-#        #    project='pkimber_net',
-#        #).save()
-#
-#
-#        #tasks = tw.tasks.pending()
-#        #for task in tasks:
-#        #    print(task['uuid'])
-#        #    print(task)
-#        #uuid = '5de8e3bf-c2af-4455-a0b4-d61effeba82d'
-#        #task = tw.tasks.get(uuid=uuid)
-#        #print()
-#        #print('task: {}'.format(task))
-#        #ticket = Ticket.objects.get(pk=38)
-#        #print('ticket: {}'.format(ticket))
-#        #try:
-#        #    ticket_task = TicketTaskWarrior.objects.get(uuid=uuid)
-#        #    print('found: {}'.format(ticket_task))
-#        #    print('     : {}'.format(ticket_task.uuid))
-#        #except TicketTaskWarrior.DoesNotExist:
-#        #    ticket_task = TicketTaskWarrior.objects.create_taskwarrior(
-#        #        uuid=task['uuid'],
-#        #        ticket=ticket,
-#        #    )
-#        #    print('create: {}'.format(ticket_task))
-#        #ticket = Ticket.objects.get(pk=764)
-#        #print()
-#        #print(ticket.title)
-#        print("TaskWarrior complete...")
 
 def json_headers(token):
     return {
@@ -157,69 +114,75 @@ def temp_yaml_write():
 def tickets(url, token, tw, project):
     url = '{}ticket'.format(url_api(url))
     data = get_json(url, token)
+    count = 0
     for item in data:
+        count = count + 1
+        ticket = int(item['id'])
+        click.secho('  {:06d}'.format(ticket), fg=YELLOW, bold=True, nl=False)
+
         description = '{} {}'.format(item['contact'].upper(), item['title'])
         due = datetime.strptime(item['due'], '%Y-%m-%d')
         priority = PRIORITY[item['priority']]
-        ticket = int(item['id'])
         username = item['username']
 
         update = False
         alert = ''
         message = ''
-        click.secho('  {:06d}'.format(ticket), fg=YELLOW, bold=True, nl=False)
-        task = tw.tasks.get(project=project, ticket=ticket)
-        if task['due'].date() != due.date():
-            task['due'] = due.date()
-            update = True
-        if task['priority'] != priority:
-            task['priority'] = priority
-            update = True
-        if task['description'] != description:
-            task['description'] = description
-            update = True
-        if task[''] != username:
-            task['username'] = username
-            update = True
-        #task = tw.tasks.get(project=project, ticket=ticket)
-        if task.completed or task.deleted:
-            task['status'] = 'pending'
-            alert = 'was completed (or deleted) - now pending'
-            update = True
-            #click.secho('was completed or deleted - now pending', fg=YELLOW, bold=True)
-        if update:
-            message = 'update'
-            task.save()
+        uuid = ''
+        try:
+            task = tw.tasks.get(project=project, ticket=ticket)
+            uuid = task['uuid']
+            if task['description'] != description:
+                task['description'] = description
+                update = True
+            if task['due'].date() != due.date():
+                task['due'] = due.date()
+                update = True
+            if task['priority'] != priority:
+                task['priority'] = priority
+                update = True
+            if task['username'] != username:
+                task['username'] = username
+                update = True
+            if task.completed or task.deleted:
+                task['status'] = 'pending'
+                alert = 'was completed (or deleted) - now pending'
+                update = True
+            if update:
+                message = 'Update'
+                task.save()
+        except Task.DoesNotExist:
+            Task(
+                tw,
+                description=description,
+                due=due,
+                priority=priority,
+                project=project,
+                ticket=ticket,
+                username=username,
+            ).save()
+            message = 'Create'
         click.secho('  ', nl=False)
+        click.secho('{:40s}'.format(description[:38]), nl=False)
+        click.secho('{:9s}'.format(username[:7]), nl=False)
         click.secho(u'\u2713'.format(ticket), fg=GREEN, bold=True, nl=False)
         click.secho('  ', nl=False)
-        click.secho('{:20s}'.format(message), nl=False)
+        click.secho('{:20s}'.format(message), fg=CYAN, bold=True, nl=False)
         click.secho('{:20s}'.format(alert), fg=RED, bold=True, nl=False)
+        #click.secho('{:40s}'.format(uuid), nl=False)
         click.secho('')
 
-        #Task(
-        #    tw,
-        #    description=item['title'],
-        #    project=project,
-        #    ticket=item['id'],
-        #    username=item['username'],
-        #).save()
-        #tasks = tw.tasks.filter(project=project)
 
-        #try:
-        #    task = tw.tasks.get(status='pending', project=project, ticket=ticket)
-        #except Task.DoesNotExist:
-        #    click.secho('Task DoesNotExist', fg=RED, bold=True)
-
-        click.secho('  {}'.format(item))
-        #for task in tasks:
-        click.secho('    {}'.format(task['uuid']))
-        click.secho('      {}'.format(task['description']))
-        click.secho('      {}'.format(task['project']))
-        click.secho('      {}'.format(task['ticket']))
-        click.secho('      {}'.format(task['username']))
-        click.secho('      {}'.format(task['due']))
-        break
+        #click.secho('  {}'.format(item))
+        #task = tw.tasks.get(project=project, ticket=ticket)
+        #click.secho('    {}'.format(task['uuid']))
+        #click.secho('      {}'.format(task['description']))
+        #click.secho('      {}'.format(task['project']))
+        #click.secho('      {}'.format(task['ticket']))
+        #click.secho('      {}'.format(task['username']))
+        #click.secho('      {}'.format(task['due']))
+        if count > 4:
+            break
 
 
 def url_api(url):
