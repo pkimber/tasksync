@@ -1,5 +1,6 @@
 # -*- encoding: utf-8 -*-
 import click
+import requests
 import yaml
 
 from tasklib.task import (
@@ -11,7 +12,19 @@ CYAN = 'cyan'
 YELLOW = 'yellow'
 WHITE = 'white'
 
-SETTINGS_FILE = '.private.yaml'
+CRM_API_VERSION = '0.1'
+CONFIG_FILE = '.private.yaml'
+
+
+class SyncError(Exception):
+
+    def __init__(self, value):
+        Exception.__init__(self)
+        self.value = value
+
+    def __str__(self):
+        return repr('{}, {}'.format(self.__class__.__name__, self.value))
+
 
 #        data_location = settings.TASKWARRIOR
 #        print(settings.TASKWARRIOR)
@@ -57,6 +70,27 @@ SETTINGS_FILE = '.private.yaml'
 #        #print(ticket.title)
 #        print("TaskWarrior complete...")
 
+
+def load_config():
+    data = yaml.load(open(CONFIG_FILE, "r"))
+    return data
+
+
+def login(api_url, user_name, password):
+    """login using a form post."""
+    token = None
+    data = {'username': user_name, 'password': password}
+    try:
+        response = requests.post(url_login(api_url), data=data)
+    except requests.ConnectionError as e:
+        raise SyncError('Cannot connect to {}'.format(api_url)) from e
+    if response.status_code == 200:
+        token = response.json().get('token')
+    else:
+        raise SyncError('Invalid Login')
+    return token
+
+
 def temp_yaml_write():
     """Check YAML format."""
     data = {
@@ -67,13 +101,24 @@ def temp_yaml_write():
             'url': 'http://localhost:8000',
         },
     }
-    with open(SETTINGS_FILE, 'w') as f:
+    with open(CONFIG_FILE, 'w') as f:
         yaml.dump(data, f, default_flow_style=False)
 
 
-def settings():
-    data = yaml.load(open(SETTINGS_FILE, "r"))
-    return data
+def url_api(url):
+    """Return the API URL.
+
+    e.g. https://www.hatherleigh.info/api/0.1/
+
+    """
+    if not url.endswith('/'):
+        url = url + '/'
+    return '{}api/{}/'.format(url, CRM_API_VERSION)
+
+
+def url_login(api_url):
+    """Return the login URL."""
+    return '{}token/'.format(url_api(api_url))
 
 
 @click.command()
@@ -81,9 +126,11 @@ def cli():
     click.clear()
     click.secho('Sync TaskWarrior with CRM', fg=WHITE, bold=True)
     temp_yaml_write()
-    data = settings()
-    for site, setting in data.items():
+    config = load_config()
+    for site, data in config.items():
         click.secho('{}'.format(site), fg=CYAN)
+        url = url_api(data['url'])
+        token = login(url, data['username'], data['password'])
 
 
 if __name__ == '__main__':
