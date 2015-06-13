@@ -54,3 +54,7 @@ Usage
 ::
 
   tasksync
+
+To create a diagram::
+
+  python2 graphdeps.py project:hatherleigh status:pending
