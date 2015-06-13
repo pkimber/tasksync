@@ -1,5 +1,6 @@
 # -*- encoding: utf-8 -*-
 import click
+import difflib
 import logging
 import requests
 import yaml
@@ -7,6 +8,7 @@ import yaml
 from datetime import datetime
 
 from tasklib.task import (
+    local_zone,
     Task,
     TaskWarrior,
 )
@@ -57,6 +59,24 @@ def get_json(url, token):
         raise DoesNotExistError('{}: {}'.format(response.reason, url))
     else:
         log_error('get_json', 'GET', url, response)
+
+
+def is_diff(a, b):
+    result = False
+    diff = difflib.ndiff(a, b)
+    for d in diff:
+        if d.strip() in ('-', '+', ''):
+            pass
+        elif d[:2] == '  ':
+            pass
+        else:
+            # debug diff
+            # click.secho('')
+            # click.secho('[{}]'.format(d), fg=GREEN, bold=True)
+            # click.secho('')
+            result = True
+            break
+    return result
 
 
 def load_config():
@@ -136,14 +156,18 @@ def tickets(url, token, tw, project):
         ticket_list.append(ticket)
         status_ticket(ticket)
         # task data
-        description = '[{}] {}'.format(item['contact'].lower(), item['title'].strip())
-        due = datetime.strptime(item['due'], '%Y-%m-%d') if item['due'] else None
+        description = '[{}] {}'.format(item['contact'].lower(), item['title'])
+        description = description.strip()
+        due = local_zone.localize(
+            datetime.strptime(item['due'], '%Y-%m-%d')
+        ) if item['due'] else None
         priority = PRIORITY[item['priority']]
         username = item['username'] or ''
 
-        #if ticket == 802:
-        #    import ipdb
-        #    ipdb.set_trace()
+        # debug
+        # if ticket == 789:
+        #     import ipdb
+        #     ipdb.set_trace()
 
         # loop variables
         count = count + 1
@@ -152,7 +176,7 @@ def tickets(url, token, tw, project):
         message = ''
         try:
             task = tw.tasks.get(project=project, ticket=ticket)
-            if task['description'] != description:
+            if is_diff(task['description'], description):
                 task['description'] = description
                 update = True
             if due:
@@ -166,7 +190,8 @@ def tickets(url, token, tw, project):
             if task['priority'] != priority:
                 task['priority'] = priority
                 update = True
-            if task['username'] != username:
+            task_username = task['username'] or ''
+            if task_username != username:
                 task['username'] = username
                 update = True
             if task.completed or task.deleted:
