@@ -119,11 +119,13 @@ def tickets(url, token, tw, project):
         count = count + 1
         ticket = int(item['id'])
         click.secho('  {:06d}'.format(ticket), fg=YELLOW, bold=True, nl=False)
-
-        description = '{} {}'.format(item['contact'].upper(), item['title'])
-        due = datetime.strptime(item['due'], '%Y-%m-%d')
+        description = '[{}] {}'.format(item['contact'].lower(), item['title'].strip())
+        if item['due']:
+            due = datetime.strptime(item['due'], '%Y-%m-%d')
+        else:
+            due = None
         priority = PRIORITY[item['priority']]
-        username = item['username']
+        username = item['username'] or ''
 
         update = False
         alert = ''
@@ -135,9 +137,14 @@ def tickets(url, token, tw, project):
             if task['description'] != description:
                 task['description'] = description
                 update = True
-            if task['due'].date() != due.date():
-                task['due'] = due.date()
-                update = True
+            if due:
+                if task['due'].date() != due.date():
+                    task['due'] = due.date()
+                    update = True
+            else:
+                if task['due']:
+                    task['due'] = None
+                    update = True
             if task['priority'] != priority:
                 task['priority'] = priority
                 update = True
@@ -164,24 +171,13 @@ def tickets(url, token, tw, project):
             message = 'Create'
         click.secho('  ', nl=False)
         click.secho('{:40s}'.format(description[:38]), nl=False)
-        click.secho('{:9s}'.format(username[:7]), nl=False)
+        click.secho('{:9s}'.format(username[:7].lower()), nl=False)
         click.secho(u'\u2713'.format(ticket), fg=GREEN, bold=True, nl=False)
         click.secho('  ', nl=False)
         click.secho('{:20s}'.format(message), fg=CYAN, bold=True, nl=False)
         click.secho('{:20s}'.format(alert), fg=RED, bold=True, nl=False)
-        #click.secho('{:40s}'.format(uuid), nl=False)
         click.secho('')
-
-
-        #click.secho('  {}'.format(item))
-        #task = tw.tasks.get(project=project, ticket=ticket)
-        #click.secho('    {}'.format(task['uuid']))
-        #click.secho('      {}'.format(task['description']))
-        #click.secho('      {}'.format(task['project']))
-        #click.secho('      {}'.format(task['ticket']))
-        #click.secho('      {}'.format(task['username']))
-        #click.secho('      {}'.format(task['due']))
-        if count > 4:
+        if count > 30:
             break
 
 
