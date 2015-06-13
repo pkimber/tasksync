@@ -1,7 +1,7 @@
 TaskSync
 ********
 
-Synchronise our CRM systems to a TaskWarrior database.
+Synchronise our CRM system to a TaskWarrior database.
 
 Install
 =======
@@ -17,6 +17,28 @@ Virtual Environment
   python get-pip.py
 
   pip install -r requirements.txt
+
+Configuration
+=============
+
+Create a ``.private.yaml`` file in the root of this project and configure:
+
+.. code-block:: yaml
+
+  data_location: /home/patrick/task
+  sites:
+    hatherleigh:
+      password: your-password
+      url: https://www.hatherleigh.info
+      username: patrick
+
+- ``data_location`` is the folder containing your TaskWarrior data.
+- ``sites`` is a list of web sites which have the API enabled for our CRM.
+  For more information, see https://www.pkimber.net/open/app-crm.html
+- replace ``hatherleigh`` with the name you want TaskWarrior to use for your
+  project.
+- ``username`` and ``password`` are your login details for the web site.
+- ``url`` is the URL of your web site.
 
 Testing
 =======
