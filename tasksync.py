@@ -94,6 +94,21 @@ def login(url, user_name, password):
     return token
 
 
+def status(description, username, message, alert):
+    click.secho('  ', nl=False)
+    click.secho('{:40s}'.format(description[:38]), nl=False)
+    click.secho('{:9s}'.format(username[:7].lower()), nl=False)
+    click.secho(u'\u2713', fg=GREEN, bold=True, nl=False)
+    click.secho('  ', nl=False)
+    click.secho('{:20s}'.format(message), fg=CYAN, bold=True, nl=False)
+    click.secho('{:20s}'.format(alert), fg=RED, bold=True, nl=False)
+    click.secho('')
+
+
+def status_ticket(ticket):
+    click.secho('  {:06d}'.format(ticket), fg=YELLOW, bold=True, nl=False)
+
+
 def temp_yaml_write():
     """Check YAML format."""
     data = {
@@ -115,9 +130,11 @@ def tickets(url, token, tw, project):
     url = '{}ticket'.format(url_api(url))
     data = get_json(url, token)
     count = 0
+    ticket_list = []
     for item in data:
         ticket = int(item['id'])
-        click.secho('  {:06d}'.format(ticket), fg=YELLOW, bold=True, nl=False)
+        ticket_list.append(ticket)
+        status_ticket(ticket)
         # task data
         description = '[{}] {}'.format(item['contact'].lower(), item['title'].strip())
         due = datetime.strptime(item['due'], '%Y-%m-%d') if item['due'] else None
@@ -170,14 +187,18 @@ def tickets(url, token, tw, project):
                 username=username,
             ).save()
             message = 'Create'
-        click.secho('  ', nl=False)
-        click.secho('{:40s}'.format(description[:38]), nl=False)
-        click.secho('{:9s}'.format(username[:7].lower()), nl=False)
-        click.secho(u'\u2713'.format(ticket), fg=GREEN, bold=True, nl=False)
-        click.secho('  ', nl=False)
-        click.secho('{:20s}'.format(message), fg=CYAN, bold=True, nl=False)
-        click.secho('{:20s}'.format(alert), fg=RED, bold=True, nl=False)
-        click.secho('')
+        status(description, username, message, alert)
+    tasks = tw.tasks.pending().filter(project=project)
+    for task in tasks:
+        ticket = int(task['ticket'])
+        if ticket not in ticket_list:
+            status_ticket(ticket)
+            status(
+                task['description'],
+                task['username'],
+                '',
+                'Completed on CRM'
+            )
 
 
 def url_api(url):
@@ -207,8 +228,8 @@ def cli():
     # TaskWarrior
     data_location = config['data_location']
     tw = TaskWarrior(data_location)
-    tw.config.update({'uda.ticket.type': 'numeric'})
     tw.config.update({'uda.site.type': 'string'})
+    tw.config.update({'uda.ticket.type': 'numeric'})
     tw.config.update({'uda.username.type': 'string'})
     # Sites
     sites = config['sites']
