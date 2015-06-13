@@ -4,6 +4,8 @@ import logging
 import requests
 import yaml
 
+from datetime import datetime
+
 from tasklib.task import (
     Task,
     TaskWarrior,
@@ -13,11 +15,18 @@ from tasklib.task import (
 logger = logging.getLogger(__name__)
 
 CYAN = 'cyan'
+GREEN = 'green'
 YELLOW = 'yellow'
+RED = 'red'
 WHITE = 'white'
 
 CRM_API_VERSION = '0.1'
 CONFIG_FILE = '.private.yaml'
+
+PRIORITY = {
+    'High': 'H',
+    'Medium': 'M',
+}
 
 
 class SyncError(Exception):
@@ -131,22 +140,85 @@ def login(url, user_name, password):
 def temp_yaml_write():
     """Check YAML format."""
     data = {
-        'kb': {
-            'project': 'kb',
-            'username': 'patrick',
-            'password': 'xyz',
-            'url': 'http://localhost:8000',
+        'data_location': '/home/patrick/task',
+        'sites': {
+            'kb': {
+                'project': 'kb',
+                'username': 'patrick',
+                'password': 'xyz',
+                'url': 'http://localhost:8000',
+            },
         },
     }
     with open(CONFIG_FILE, 'w') as f:
         yaml.dump(data, f, default_flow_style=False)
 
 
-def tickets(url, token):
+def tickets(url, token, tw, project):
     url = '{}ticket'.format(url_api(url))
     data = get_json(url, token)
     for item in data:
-        click.secho('  {}'.format(item), fg=YELLOW, bold=True)
+        description = '{} {}'.format(item['contact'].upper(), item['title'])
+        due = datetime.strptime(item['due'], '%Y-%m-%d')
+        priority = PRIORITY[item['priority']]
+        ticket = int(item['id'])
+        username = item['username']
+
+        update = False
+        alert = ''
+        message = ''
+        click.secho('  {:06d}'.format(ticket), fg=YELLOW, bold=True, nl=False)
+        task = tw.tasks.get(project=project, ticket=ticket)
+        if task['due'].date() != due.date():
+            task['due'] = due.date()
+            update = True
+        if task['priority'] != priority:
+            task['priority'] = priority
+            update = True
+        if task['description'] != description:
+            task['description'] = description
+            update = True
+        if task[''] != username:
+            task['username'] = username
+            update = True
+        #task = tw.tasks.get(project=project, ticket=ticket)
+        if task.completed or task.deleted:
+            task['status'] = 'pending'
+            alert = 'was completed (or deleted) - now pending'
+            update = True
+            #click.secho('was completed or deleted - now pending', fg=YELLOW, bold=True)
+        if update:
+            message = 'update'
+            task.save()
+        click.secho('  ', nl=False)
+        click.secho(u'\u2713'.format(ticket), fg=GREEN, bold=True, nl=False)
+        click.secho('  ', nl=False)
+        click.secho('{:20s}'.format(message), nl=False)
+        click.secho('{:20s}'.format(alert), fg=RED, bold=True, nl=False)
+        click.secho('')
+
+        #Task(
+        #    tw,
+        #    description=item['title'],
+        #    project=project,
+        #    ticket=item['id'],
+        #    username=item['username'],
+        #).save()
+        #tasks = tw.tasks.filter(project=project)
+
+        #try:
+        #    task = tw.tasks.get(status='pending', project=project, ticket=ticket)
+        #except Task.DoesNotExist:
+        #    click.secho('Task DoesNotExist', fg=RED, bold=True)
+
+        click.secho('  {}'.format(item))
+        #for task in tasks:
+        click.secho('    {}'.format(task['uuid']))
+        click.secho('      {}'.format(task['description']))
+        click.secho('      {}'.format(task['project']))
+        click.secho('      {}'.format(task['ticket']))
+        click.secho('      {}'.format(task['username']))
+        click.secho('      {}'.format(task['due']))
         break
 
 
@@ -174,12 +246,22 @@ def cli():
     click.secho('Sync TaskWarrior with CRM', fg=WHITE, bold=True)
     #temp_yaml_write()
     config = load_config()
-    for site, data in config.items():
-        click.secho('{}'.format(site), fg=CYAN, bold=True)
+    # TaskWarrior
+    data_location = config['data_location']
+    tw = TaskWarrior(data_location)
+    tw.config.update({'uda.ticket.type': 'numeric'})
+    tw.config.update({'uda.site.type': 'string'})
+    tw.config.update({'uda.username.type': 'string'})
+    # Sites
+    sites = config['sites']
+    for project, data in sites.items():
+        click.secho('{}'.format(project), fg=CYAN, bold=True)
+        # login
         url = data['url']
         token = login(url, data['username'], data['password'])
-        click.secho('  login', fg=YELLOW, bold=True)
-        tickets(url, token)
+        click.secho('  login')
+        # tickets
+        tickets(url, token, tw, project)
 
 
 if __name__ == '__main__':
