@@ -1,5 +1,6 @@
 # -*- encoding: utf-8 -*-
 import click
+import logging
 import requests
 import yaml
 
@@ -7,6 +8,9 @@ from tasklib.task import (
     Task,
     TaskWarrior,
 )
+
+
+logger = logging.getLogger(__name__)
 
 CYAN = 'cyan'
 YELLOW = 'yellow'
@@ -70,24 +74,57 @@ class SyncError(Exception):
 #        #print(ticket.title)
 #        print("TaskWarrior complete...")
 
+def json_headers(token):
+    return {
+        'Content-type': 'application/json',
+        'Authorization': 'Token {}'.format(token),
+    }
+
+
+def get_json(url, token):
+    response = requests.get(url, headers=json_headers(token))
+    if response.status_code == 200:
+        return response.json()
+    elif response.status_code == 401:
+        raise ServiceUnauthorized(response.status_code)
+    elif response.status_code == 404:
+        raise DoesNotExistError('{}: {}'.format(response.reason, url))
+    else:
+        log_error('get_json', 'GET', url, response)
+
 
 def load_config():
     data = yaml.load(open(CONFIG_FILE, "r"))
     return data
 
 
-def login(api_url, user_name, password):
+def log_error(name, verb, url, response):
+    message = "'{}' {} [data: '{}...']".format(
+        url, response.status_code, response.text[:1000]
+    )
+    logger.error('{}: {}'.format(name, message))
+    logger.error(message)
+    raise SyncError(
+        "Cannot {} json data: {}".format(verb, message)
+    )
+
+
+def login(url, user_name, password):
     """login using a form post."""
     token = None
     data = {'username': user_name, 'password': password}
     try:
-        response = requests.post(url_login(api_url), data=data)
+        response = requests.post(url_login(url), data=data)
     except requests.ConnectionError as e:
         raise SyncError('Cannot connect to {}'.format(api_url)) from e
     if response.status_code == 200:
         token = response.json().get('token')
     else:
-        raise SyncError('Invalid Login')
+        raise SyncError('Invalid Login ({}: {}) {}'.format(
+            response.status_code,
+            response.reason,
+            response.text[:100]
+        ))
     return token
 
 
@@ -105,6 +142,14 @@ def temp_yaml_write():
         yaml.dump(data, f, default_flow_style=False)
 
 
+def tickets(url, token):
+    url = '{}ticket'.format(url_api(url))
+    data = get_json(url, token)
+    for item in data:
+        click.secho('  {}'.format(item), fg=YELLOW, bold=True)
+        break
+
+
 def url_api(url):
     """Return the API URL.
 
@@ -116,21 +161,25 @@ def url_api(url):
     return '{}api/{}/'.format(url, CRM_API_VERSION)
 
 
-def url_login(api_url):
+def url_login(url):
     """Return the login URL."""
-    return '{}token/'.format(url_api(api_url))
+    if not url.endswith('/'):
+        url = url + '/'
+    return '{}token/'.format(url)
 
 
 @click.command()
 def cli():
     click.clear()
     click.secho('Sync TaskWarrior with CRM', fg=WHITE, bold=True)
-    temp_yaml_write()
+    #temp_yaml_write()
     config = load_config()
     for site, data in config.items():
-        click.secho('{}'.format(site), fg=CYAN)
-        url = url_api(data['url'])
+        click.secho('{}'.format(site), fg=CYAN, bold=True)
+        url = data['url']
         token = login(url, data['username'], data['password'])
+        click.secho('  login', fg=YELLOW, bold=True)
+        tickets(url, token)
 
 
 if __name__ == '__main__':
