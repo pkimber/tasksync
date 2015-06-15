@@ -165,7 +165,7 @@ def tickets(url, token, tw, project):
         username = item['username'] or ''
 
         # debug
-        # if ticket == 789:
+        # if ticket == 893:
         #     import ipdb
         #     ipdb.set_trace()
 
@@ -180,7 +180,11 @@ def tickets(url, token, tw, project):
                 task['description'] = description
                 update = True
             if due:
-                if task['due'].date() != due.date():
+                if task['due']:
+                    if task['due'].date() != due.date():
+                        task['due'] = due.date()
+                        update = True
+                else:
                     task['due'] = due.date()
                     update = True
             else:
