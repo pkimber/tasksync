@@ -58,3 +58,17 @@ Usage
 To create a diagram::
 
   python2 graphdeps.py project:hatherleigh status:pending
+
+Or... using https://github.com/vsbabu/pinboard::
+
+  git clone git@github.com:vsbabu/pinboard.git
+  cd pinboard
+
+  # js board
+  python2 utils/export-yaml-pinboard.py kb > board.js.yml
+  # edit 'board.js.yml' to remove square brackets (open and close)
+  firefox index.html
+
+  # or... html
+  python2 utils/export-html-pinboard.py kb biz personal > out.html
+  firefox out.html
