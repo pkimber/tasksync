@@ -1,6 +1,5 @@
 -e .
-click==4.0
-ipdb
+click==6.6
 pyyaml==3.11
-requests==2.7.0
-tasklib==0.9.0
+requests==2.9.1
+tasklib==1.0.0

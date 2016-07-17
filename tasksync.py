@@ -7,14 +7,13 @@ import yaml
 
 from datetime import datetime
 
-from tasklib.task import (
-    local_zone,
-    Task,
-    TaskWarrior,
-)
+from tasklib.backends import TaskWarrior
+from tasklib.serializing import local_zone
+from tasklib.task import Task
 
 
 logger = logging.getLogger(__name__)
+
 
 CYAN = 'cyan'
 GREEN = 'green'
@@ -257,9 +256,9 @@ def cli():
     # TaskWarrior
     data_location = config['data_location']
     tw = TaskWarrior(data_location)
-    tw.config.update({'uda.site.type': 'string'})
-    tw.config.update({'uda.ticket.type': 'numeric'})
-    tw.config.update({'uda.username.type': 'string'})
+    # tw.config.update({'uda.site.type': 'string'})
+    # tw.config.update({'uda.ticket.type': 'numeric'})
+    # tw.config.update({'uda.username.type': 'string'})
     # Sites
     sites = config['sites']
     for project, data in sites.items():
