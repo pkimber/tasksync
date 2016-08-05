@@ -116,7 +116,8 @@ def login(url, user_name, password):
 def status(description, username, message, alert):
     click.secho('  ', nl=False)
     click.secho('{:40s}'.format(description[:38]), nl=False)
-    click.secho('{:9s}'.format(username[:7].lower()), nl=False)
+    if username:
+        click.secho('{:9s}'.format(username[:7].lower()), nl=False)
     click.secho(u'\u2713', fg=GREEN, bold=True, nl=False)
     click.secho('  ', nl=False)
     click.secho('{:20s}'.format(message), fg=CYAN, bold=True, nl=False)
